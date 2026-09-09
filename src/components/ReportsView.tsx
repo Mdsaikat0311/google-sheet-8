@@ -209,63 +209,71 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     return s.includes('part') || c === 'partial_delivered';
   };
 
+  // The 6 canonical products from Sheet2 Column H toggle button & Sheet 1
+  const SHEET2_TOGGLE_PRODUCTS = [
+    'Rose 599tk',
+    'Doll and toys',
+    'Watch 599tk',
+    'Porbash Rose 990tk',
+    'Porbash Rose 1350tk',
+    'Cutting Dispancer',
+  ] as const;
+
   // Helper to match an order to a product name
   const matchesProductName = (order: Order, prodName: string): boolean => {
-    const pLow = prodName.toLowerCase().trim();
-    const vLow = (order.variant || '').toLowerCase().trim();
-    const oProdLow = (order.product || '').toLowerCase().trim();
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const pNorm = normalize(prodName);
+    const vNorm = normalize(order.variant || '');
 
-    if (vLow === pLow || oProdLow === pLow) return true;
-    if (vLow && vLow !== 'no sellect' && (vLow.includes(pLow) || pLow.includes(vLow))) return true;
-    if (oProdLow && (oProdLow.includes(pLow) || pLow.includes(oProdLow))) return true;
+    // Priority 1: Match with Column H (variant toggle button) from Sheet 2
+    if (vNorm && vNorm !== 'nosellect') {
+      if (vNorm === pNorm) return true;
+      if (pNorm.includes('599') && !vNorm.includes('599')) return false;
+      if (pNorm.includes('990') && !vNorm.includes('990')) return false;
+      if (pNorm.includes('1350') && !vNorm.includes('1350')) return false;
+      return vNorm.includes(pNorm) || pNorm.includes(vNorm);
+    }
+
+    // Priority 2: Fallback to order.product only if Column H was not selected
+    const oNorm = normalize(order.product || '');
+    if (oNorm && oNorm !== 'nosellect') {
+      if (oNorm === pNorm) return true;
+      if (pNorm.includes('599') && !oNorm.includes('599')) return false;
+      if (pNorm.includes('990') && !oNorm.includes('990')) return false;
+      if (pNorm.includes('1350') && !oNorm.includes('1350')) return false;
+      if (pNorm.includes('doll') && oNorm.includes('doll')) return true;
+      if (pNorm.includes('dispancer') && oNorm.includes('dispancer')) return true;
+    }
     return false;
   };
 
-  // Master unified products list: combines Sheet 1 products with any products in orders
+  // Master unified products list: STRICTLY AND ONLY the 6 products from Sheet 2 Column H & Sheet 1
   const unifiedProducts = useMemo(() => {
-    const list: {
-      id: string;
-      productName: string;
-      rawHeader: string;
-      sheetReport?: Sheet1ProductReport;
-    }[] = [];
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-    // Add products from Sheet 1
-    sheetProducts.forEach((sp) => {
-      list.push({
-        id: sp.id,
-        productName: sp.productName,
-        rawHeader: sp.rawHeader,
-        sheetReport: sp,
-      });
-    });
-
-    // Also check orders for any unique variants or products not in Sheet 1
-    orders.forEach((o) => {
-      const candidates = [o.variant, o.product].filter(
-        (v) => v && v.trim() && v.trim().toLowerCase() !== 'no sellect'
-      ) as string[];
-
-      candidates.forEach((cand) => {
-        const cleanCand = cand.trim();
-        const exists = list.some(
-          (p) =>
-            p.productName.toLowerCase().trim() === cleanCand.toLowerCase().trim() ||
-            p.productName.toLowerCase().includes(cleanCand.toLowerCase()) ||
-            cleanCand.toLowerCase().includes(p.productName.toLowerCase())
+    return SHEET2_TOGGLE_PRODUCTS.map((prodName, idx) => {
+      const pNorm = normalize(prodName);
+      // Find matching real-time report from Sheet 1
+      const sheetReport = sheetProducts.find((sp) => {
+        const spNorm = normalize(sp.productName);
+        return (
+          spNorm === pNorm ||
+          (pNorm.includes('599') && spNorm.includes('599') && pNorm.slice(0, 4) === spNorm.slice(0, 4)) ||
+          (pNorm.includes('990') && spNorm.includes('990')) ||
+          (pNorm.includes('1350') && spNorm.includes('1350')) ||
+          (pNorm.includes('doll') && spNorm.includes('doll')) ||
+          (pNorm.includes('dispancer') && spNorm.includes('dispancer'))
         );
-        if (!exists) {
-          list.push({
-            id: `ORD-PROD-${cleanCand.replace(/\s+/g, '-').toLowerCase()}`,
-            productName: cleanCand,
-            rawHeader: cleanCand,
-          });
-        }
       });
-    });
 
-    return list;
-  }, [sheetProducts, orders]);
+      return {
+        id: sheetReport ? sheetReport.id : `SHEET2-PROD-${idx + 1}`,
+        productName: prodName,
+        rawHeader: sheetReport ? sheetReport.rawHeader : prodName,
+        sheetReport,
+      };
+    });
+  }, [sheetProducts]);
 
   // Aggregate stats across all products according to selected date
   const aggregatedStats = useMemo(() => {

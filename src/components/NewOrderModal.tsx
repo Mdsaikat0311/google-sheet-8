@@ -45,6 +45,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       customerPhone: customerPhone.trim() || '01700000000',
       customerAddress: customerAddress.trim() || 'ঢাকা',
       product: product.trim() || 'Rose 599tk',
+      variant: product.trim() || 'Rose 599tk',
       source,
       amount: Number(amount) || 599,
       total: Number(amount) || 599,

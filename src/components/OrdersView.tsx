@@ -278,7 +278,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     return true;
   });
 
-  // 1. Column H (Variant) options - verified from Google Sheet (Col H & sheet analytics columns)
+  // 1. Column H (Variant) options - strictly the 6 products from Google Sheet + No Sellect
   const sheetVariants = [
     'No Sellect',
     'Rose 599tk',
@@ -287,18 +287,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     'Porbash Rose 990tk',
     'Porbash Rose 1350tk',
     'Cutting Dispancer',
-    'Golden Watch Combo',
   ];
 
-  // Dynamic connection to Google Sheet orders data for Variants
-  const availableVariants = Array.from(
-    new Set([
-      ...sheetVariants,
-      ...orders
-        .map((o) => (o.variant || '').trim())
-        .filter((v) => v && v !== '' && !/^\d{8,}$/.test(v)),
-    ])
-  );
+  // Strictly the 6 canonical products (+ No Sellect)
+  const availableVariants = sheetVariants;
 
   // 2. Column I (Source) options - verified from Google Sheet (Col I & lead formulas)
   const sheetSources = [
