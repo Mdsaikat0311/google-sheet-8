@@ -57,9 +57,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   
   const [activeTab, setActiveTab] = useState<'products' | 'sources'>('products');
   
-  // Date Filtering State
-  const [dateFilter, setDateFilter] = useState<string>('all'); // 'all', 'today', 'yesterday', 'week', 'month', or specific date
-  const [customDate, setCustomDate] = useState<string>('');
+  // Date Filtering State: 'all', 'today', 'yesterday', 'last7days', 'last30days', 'lastmonth', 'custom', or specific date
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
   const [isDateMenuOpen, setIsDateMenuOpen] = useState(false);
 
   // Load Sheet 1 Report Data (supports background real-time sync)
@@ -107,49 +108,120 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     return Array.from(set);
   }, [orders]);
 
-  // Normalize and match date filter
+  // Helper to parse dates from sheet (e.g. DD/MM/YY, DD/MM/YYYY, YYYY-MM-DD)
+  const parseSheetDate = (str?: string): Date | null => {
+    if (!str) return null;
+    const s = str.trim();
+    if (!s) return null;
+
+    // YYYY-MM-DD or YYYY/MM/DD
+    const isoMatch = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (isoMatch) {
+      const y = parseInt(isoMatch[1], 10);
+      const m = parseInt(isoMatch[2], 10) - 1;
+      const d = parseInt(isoMatch[3], 10);
+      const dt = new Date(y, m, d);
+      if (!isNaN(dt.getTime())) return dt;
+    }
+
+    // DD/MM/YY or DD/MM/YYYY or DD-MM-YY or DD-MM-YYYY
+    const dmyMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+    if (dmyMatch) {
+      const d = parseInt(dmyMatch[1], 10);
+      const m = parseInt(dmyMatch[2], 10) - 1;
+      let y = parseInt(dmyMatch[3], 10);
+      if (y < 100) y += 2000;
+      const dt = new Date(y, m, d);
+      if (!isNaN(dt.getTime())) return dt;
+    }
+
+    const fallback = new Date(s);
+    if (!isNaN(fallback.getTime())) return fallback;
+    return null;
+  };
+
+  // Normalize and match date filter (supports All Time, Today, Yesterday, Last 7 Days, Last 30 Days, Last Month, Custom Date Range, and specific Sheet dates)
   const matchesDate = (orderDateStr?: string): boolean => {
     if (dateFilter === 'all') return true;
     if (!orderDateStr) return false;
     const cleanDate = orderDateStr.trim();
 
-    if (dateFilter === 'custom' && customDate) {
-      // Compare customDate (YYYY-MM-DD) with cleanDate (e.g. 08/09/26, 2026-09-08, 08/09/2026)
-      if (cleanDate.includes(customDate)) return true;
-      const parts = customDate.split('-');
-      if (parts.length === 3) {
-        const [y, m, d] = parts;
-        const shortY = y.slice(-2);
-        const format1 = `${d}/${m}/${shortY}`;
-        const format2 = `${d}/${m}/${y}`;
-        const format3 = `${m}/${d}/${shortY}`;
-        if (cleanDate === format1 || cleanDate === format2 || cleanDate === format3) return true;
+    // Direct match with specific sheet date string (e.g. '08/09/26')
+    if (cleanDate === dateFilter) return true;
+
+    const orderDate = parseSheetDate(cleanDate);
+    if (!orderDate) {
+      if (dateFilter === 'custom') {
+        if (customStartDate && cleanDate.includes(customStartDate)) return true;
+        if (customEndDate && cleanDate.includes(customEndDate)) return true;
       }
+      return false;
     }
 
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
     if (dateFilter === 'today') {
-      const now = new Date();
+      if (orderDate >= todayStart && orderDate <= todayEnd) return true;
       const d = String(now.getDate()).padStart(2, '0');
       const m = String(now.getMonth() + 1).padStart(2, '0');
       const y = String(now.getFullYear()).slice(-2);
       const todayStr = `${d}/${m}/${y}`;
-      if (cleanDate === todayStr || cleanDate.includes(todayStr)) return true;
-      // Fallback: If orders have a single recent date like 08/09/26 and it's active in demo
-      if (availableDates.length > 0 && cleanDate === availableDates[0]) return true;
-      return false;
+      return cleanDate === todayStr || cleanDate.includes(todayStr);
     }
 
     if (dateFilter === 'yesterday') {
-      const now = new Date();
-      now.setDate(now.getDate() - 1);
-      const d = String(now.getDate()).padStart(2, '0');
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const y = String(now.getFullYear()).slice(-2);
+      const yestStart = new Date(todayStart);
+      yestStart.setDate(yestStart.getDate() - 1);
+      const yestEnd = new Date(todayEnd);
+      yestEnd.setDate(yestEnd.getDate() - 1);
+      if (orderDate >= yestStart && orderDate <= yestEnd) return true;
+      const yDate = new Date(now);
+      yDate.setDate(yDate.getDate() - 1);
+      const d = String(yDate.getDate()).padStart(2, '0');
+      const m = String(yDate.getMonth() + 1).padStart(2, '0');
+      const y = String(yDate.getFullYear()).slice(-2);
       const yesterdayStr = `${d}/${m}/${y}`;
       return cleanDate === yesterdayStr || cleanDate.includes(yesterdayStr);
     }
 
-    // Specific date selected directly from available dates
+    if (dateFilter === 'last7days') {
+      const start = new Date(todayStart);
+      start.setDate(start.getDate() - 6);
+      return orderDate >= start && orderDate <= todayEnd;
+    }
+
+    if (dateFilter === 'last30days') {
+      const start = new Date(todayStart);
+      start.setDate(start.getDate() - 29);
+      return orderDate >= start && orderDate <= todayEnd;
+    }
+
+    if (dateFilter === 'lastmonth') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      return orderDate >= start && orderDate <= end;
+    }
+
+    if (dateFilter === 'custom') {
+      const cStart = customStartDate ? parseSheetDate(customStartDate) : null;
+      const cEnd = customEndDate ? parseSheetDate(customEndDate) : null;
+
+      if (cStart && cEnd) {
+        const start = new Date(cStart.getFullYear(), cStart.getMonth(), cStart.getDate(), 0, 0, 0, 0);
+        const end = new Date(cEnd.getFullYear(), cEnd.getMonth(), cEnd.getDate(), 23, 59, 59, 999);
+        return orderDate >= start && orderDate <= end;
+      } else if (cStart) {
+        const start = new Date(cStart.getFullYear(), cStart.getMonth(), cStart.getDate(), 0, 0, 0, 0);
+        return orderDate >= start;
+      } else if (cEnd) {
+        const end = new Date(cEnd.getFullYear(), cEnd.getMonth(), cEnd.getDate(), 23, 59, 59, 999);
+        return orderDate <= end;
+      }
+      return true;
+    }
+
     return cleanDate === dateFilter;
   };
 
@@ -157,7 +229,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const dateFilteredOrders = useMemo(() => {
     if (dateFilter === 'all') return orders;
     return orders.filter((o) => matchesDate(o.date));
-  }, [orders, dateFilter, customDate, availableDates]);
+  }, [orders, dateFilter, customStartDate, customEndDate, availableDates]);
 
   // Order status helper functions
   const isConfirmed = (status?: string) => {
@@ -393,6 +465,63 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   // Aggregate sources across all products for Sources tab
   const sourceAnalytics = useMemo(() => {
+    const colors: { [key: string]: string } = {
+      Website: '#3b82f6',
+      Messenger: '#8b5cf6',
+      Whatsapp: '#10b981',
+      Tiktok: '#ec4899',
+      'Call Direct': '#f59e0b',
+      INCOMPLETE: '#ef4444',
+      Youtube: '#dc2626',
+    };
+
+    if (dateFilter !== 'all') {
+      const sourceMap: {
+        [key: string]: {
+          name: string;
+          lead: number;
+          confirm: number;
+          delivery: number;
+          partial: number;
+          pending: number;
+          quantity: number;
+          cancel: number;
+        };
+      } = {};
+
+      dateFilteredOrders.forEach((o) => {
+        const cleanName = o.source && o.source.trim() ? o.source.trim() : 'Website';
+        if (!sourceMap[cleanName]) {
+          sourceMap[cleanName] = {
+            name: cleanName,
+            lead: 0,
+            confirm: 0,
+            delivery: 0,
+            partial: 0,
+            pending: 0,
+            quantity: 0,
+            cancel: 0,
+          };
+        }
+        sourceMap[cleanName].lead += 1;
+        if (isConfirmed(o.status)) sourceMap[cleanName].confirm += 1;
+        if (isDelivered(o.status, o.courierStatus)) sourceMap[cleanName].delivery += 1;
+        if (isPartial(o.status, o.courierStatus)) sourceMap[cleanName].partial += 1;
+        if (isPending(o.status, o.courierStatus)) sourceMap[cleanName].pending += 1;
+        sourceMap[cleanName].quantity += o.quantity || 1;
+        if (isCancelled(o.status, o.courierStatus)) sourceMap[cleanName].cancel += 1;
+      });
+
+      const list = Object.values(sourceMap);
+      const totalLead = list.reduce((sum, item) => sum + item.lead, 0);
+
+      return list.map((item) => ({
+        ...item,
+        percentage: totalLead > 0 ? Math.round((item.lead / totalLead) * 100) : 0,
+        color: colors[item.name] || '#6b7280',
+      }));
+    }
+
     const sourceMap: {
       [key: string]: {
         name: string;
@@ -434,22 +563,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     const list = Object.values(sourceMap);
     const totalLead = list.reduce((sum, item) => sum + item.lead, 0);
 
-    const colors: { [key: string]: string } = {
-      Website: '#3b82f6',
-      Messenger: '#8b5cf6',
-      Whatsapp: '#10b981',
-      Tiktok: '#ec4899',
-      'Call Direct': '#f59e0b',
-      INCOMPLETE: '#ef4444',
-      Youtube: '#dc2626',
-    };
-
     return list.map((item) => ({
       ...item,
       percentage: totalLead > 0 ? Math.round((item.lead / totalLead) * 100) : 0,
       color: colors[item.name] || '#6b7280',
     }));
-  }, [sheetProducts]);
+  }, [sheetProducts, dateFilter, dateFilteredOrders]);
 
   // Source Icon Helper
   const getSourceIcon = (name: string) => {
@@ -723,10 +842,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   // Get readable label for current date filter
   const getDateFilterLabel = () => {
-    if (dateFilter === 'all') return 'সব তারিখ (All Dates)';
+    if (dateFilter === 'all') return 'সব সময় (All Time)';
     if (dateFilter === 'today') return 'আজ (Today)';
     if (dateFilter === 'yesterday') return 'গতকাল (Yesterday)';
-    if (dateFilter === 'custom') return customDate ? `তারিখ: ${customDate}` : 'কাস্টম তারিখ';
+    if (dateFilter === 'last7days') return 'গত ৭ দিন (Last 7 Days)';
+    if (dateFilter === 'last30days') return 'গত ৩০ দিন (Last 30 Days)';
+    if (dateFilter === 'lastmonth') return 'গত মাস (Last Month)';
+    if (dateFilter === 'custom') {
+      if (customStartDate && customEndDate) return `${customStartDate} থেকে ${customEndDate}`;
+      if (customStartDate) return `${customStartDate} থেকে`;
+      if (customEndDate) return `${customEndDate} পর্যন্ত`;
+      return 'কাস্টম তারিখ সীমা';
+    }
     return `তারিখ: ${dateFilter}`;
   };
 
@@ -757,92 +884,178 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </button>
 
             {isDateMenuOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-[#161a26] border border-[#273046] rounded-xl shadow-2xl py-2 z-40 animate-fadeIn">
-                <div className="px-3 py-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-[#20273a] mb-1">
-                  তারিখ নির্বাচন করুন
-                </div>
+              <>
+                {/* Backdrop to close when clicking outside */}
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setIsDateMenuOpen(false)}
+                />
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-[#161a26] border border-[#273046] rounded-2xl shadow-2xl p-2.5 z-40 animate-fadeIn space-y-2">
+                  <div className="px-2 py-1 text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-[#20273a] flex items-center justify-between">
+                    <span>তারিখ নির্বাচন করুন (Date Filter)</span>
+                    <span className="text-[10px] text-pink-400 font-mono">লাইভ ডাটা</span>
+                  </div>
 
-                <button
-                  onClick={() => {
-                    setDateFilter('all');
-                    setIsDateMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-1.5 text-xs flex items-center justify-between hover:bg-[#20273a] ${
-                    dateFilter === 'all' ? 'text-pink-400 font-bold bg-pink-500/10' : 'text-gray-300'
-                  }`}
-                >
-                  <span>সব তারিখ (All Dates)</span>
-                  <span className="text-[10px] text-gray-500 font-mono">{orders.length}</span>
-                </button>
+                  {/* Preset Options requested: ALL TIME, TODAY, YESTERDAY, LAST 7 DAYS, LAST 30 DAYS, LAST MONTH */}
+                  <div className="grid grid-cols-2 gap-1">
+                    <button
+                      onClick={() => {
+                        setDateFilter('all');
+                        setIsDateMenuOpen(false);
+                      }}
+                      className={`text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all ${
+                        dateFilter === 'all'
+                          ? 'bg-pink-600/20 text-pink-400 font-bold border border-pink-500/30'
+                          : 'text-gray-300 hover:bg-[#20273a]'
+                      }`}
+                    >
+                      <span>সব সময় (All Time)</span>
+                      <span className="text-[10px] text-gray-500 font-mono">{orders.length}</span>
+                    </button>
 
-                <button
-                  onClick={() => {
-                    setDateFilter('today');
-                    setIsDateMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-1.5 text-xs flex items-center justify-between hover:bg-[#20273a] ${
-                    dateFilter === 'today' ? 'text-pink-400 font-bold bg-pink-500/10' : 'text-gray-300'
-                  }`}
-                >
-                  <span>আজ (Today)</span>
-                  <span className="text-[10px] text-gray-500 font-mono">লাইভ</span>
-                </button>
+                    <button
+                      onClick={() => {
+                        setDateFilter('today');
+                        setIsDateMenuOpen(false);
+                      }}
+                      className={`text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all ${
+                        dateFilter === 'today'
+                          ? 'bg-pink-600/20 text-pink-400 font-bold border border-pink-500/30'
+                          : 'text-gray-300 hover:bg-[#20273a]'
+                      }`}
+                    >
+                      <span>আজ (Today)</span>
+                      <span className="text-[10px] text-emerald-400 font-mono">●</span>
+                    </button>
 
-                <button
-                  onClick={() => {
-                    setDateFilter('yesterday');
-                    setIsDateMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-1.5 text-xs flex items-center justify-between hover:bg-[#20273a] ${
-                    dateFilter === 'yesterday' ? 'text-pink-400 font-bold bg-pink-500/10' : 'text-gray-300'
-                  }`}
-                >
-                  <span>গতকাল (Yesterday)</span>
-                </button>
+                    <button
+                      onClick={() => {
+                        setDateFilter('yesterday');
+                        setIsDateMenuOpen(false);
+                      }}
+                      className={`text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all ${
+                        dateFilter === 'yesterday'
+                          ? 'bg-pink-600/20 text-pink-400 font-bold border border-pink-500/30'
+                          : 'text-gray-300 hover:bg-[#20273a]'
+                      }`}
+                    >
+                      <span>গতকাল (Yesterday)</span>
+                    </button>
 
-                {availableDates.length > 0 && (
-                  <>
-                    <div className="px-3 py-1 mt-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-t border-[#20273a]">
-                      শীট থেকে প্রাপ্ত তারিখ:
+                    <button
+                      onClick={() => {
+                        setDateFilter('last7days');
+                        setIsDateMenuOpen(false);
+                      }}
+                      className={`text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all ${
+                        dateFilter === 'last7days'
+                          ? 'bg-pink-600/20 text-pink-400 font-bold border border-pink-500/30'
+                          : 'text-gray-300 hover:bg-[#20273a]'
+                      }`}
+                    >
+                      <span>গত ৭ দিন (7 Days)</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setDateFilter('last30days');
+                        setIsDateMenuOpen(false);
+                      }}
+                      className={`text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all ${
+                        dateFilter === 'last30days'
+                          ? 'bg-pink-600/20 text-pink-400 font-bold border border-pink-500/30'
+                          : 'text-gray-300 hover:bg-[#20273a]'
+                      }`}
+                    >
+                      <span>গত ৩০ দিন (30 Days)</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setDateFilter('lastmonth');
+                        setIsDateMenuOpen(false);
+                      }}
+                      className={`text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-all ${
+                        dateFilter === 'lastmonth'
+                          ? 'bg-pink-600/20 text-pink-400 font-bold border border-pink-500/30'
+                          : 'text-gray-300 hover:bg-[#20273a]'
+                      }`}
+                    >
+                      <span>গত মাস (Last Month)</span>
+                    </button>
+                  </div>
+
+                  {/* Manually Select Date from Date to Date (কাস্টম তারিখ সীমা) */}
+                  <div className="px-2 pt-2 border-t border-[#20273a] space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wider">
+                      তারিখ থেকে তারিখ (Date Range):
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[9px] text-gray-400 block mb-0.5">শুরু (From):</span>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="w-full bg-[#10131c] border border-[#273046] rounded-lg px-2 py-1 text-[11px] text-white focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-gray-400 block mb-0.5">শেষ (To):</span>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          className="w-full bg-[#10131c] border border-[#273046] rounded-lg px-2 py-1 text-[11px] text-white focus:outline-none focus:border-pink-500"
+                        />
+                      </div>
                     </div>
-                    {availableDates.map((dt) => {
-                      const count = orders.filter((o) => o.date?.trim() === dt).length;
-                      return (
-                        <button
-                          key={dt}
-                          onClick={() => {
-                            setDateFilter(dt);
-                            setIsDateMenuOpen(false);
-                          }}
-                          className={`w-full text-left px-3.5 py-1.5 text-xs flex items-center justify-between hover:bg-[#20273a] ${
-                            dateFilter === dt ? 'text-pink-400 font-bold bg-pink-500/10' : 'text-gray-300'
-                          }`}
-                        >
-                          <span>তারিখ: {dt}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e2434] text-purple-300 font-mono">
-                            {count} টি
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
+                    <button
+                      onClick={() => {
+                        if (customStartDate || customEndDate) {
+                          setDateFilter('custom');
+                          setIsDateMenuOpen(false);
+                        }
+                      }}
+                      disabled={!customStartDate && !customEndDate}
+                      className="w-full py-1.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all shadow"
+                    >
+                      ফিল্টার প্রয়োগ করুন
+                    </button>
+                  </div>
 
-                {/* Custom Date Input */}
-                <div className="px-3 pt-2 mt-1 border-t border-[#20273a]">
-                  <label className="text-[10px] text-gray-400 block mb-1">কাস্টম নির্দিষ্ট তারিখ:</label>
-                  <input
-                    type="date"
-                    value={customDate}
-                    onChange={(e) => {
-                      setCustomDate(e.target.value);
-                      setDateFilter('custom');
-                      setIsDateMenuOpen(false);
-                    }}
-                    className="w-full bg-[#10131c] border border-[#273046] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-pink-500"
-                  />
+                  {/* Dates From Sheet */}
+                  {availableDates.length > 0 && (
+                    <div className="pt-1.5 border-t border-[#20273a]">
+                      <div className="px-2 py-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                        শীট থেকে নির্দিষ্ট তারিখ:
+                      </div>
+                      <div className="max-h-28 overflow-y-auto space-y-0.5 mt-1 pr-1">
+                        {availableDates.map((dt) => {
+                          const count = orders.filter((o) => o.date?.trim() === dt).length;
+                          return (
+                            <button
+                              key={dt}
+                              onClick={() => {
+                                setDateFilter(dt);
+                                setIsDateMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-2 py-1 rounded-lg text-xs flex items-center justify-between hover:bg-[#20273a] transition-colors ${
+                                dateFilter === dt ? 'text-pink-400 font-bold bg-pink-500/10' : 'text-gray-300'
+                              }`}
+                            >
+                              <span>{dt}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e2434] text-purple-300 font-mono">
+                                {count} টি
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>
