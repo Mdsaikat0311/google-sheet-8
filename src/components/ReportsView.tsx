@@ -730,50 +730,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-20">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#12151f] border border-[#1e2436] p-4 sm:p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-pink-500 animate-pulse" />
-              শীট ১ রিলেশন ও প্রোডাক্ট পারফরম্যান্স রিপোর্ট
-            </h2>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 font-medium">
-              Live Relation Sync
-            </span>
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            প্রতিটি প্রোডাক্ট ও সেলস সোর্সের লিড, কনফার্ম, ডেলিভারি ও ক্যান্সেল বিশ্লেষণ
-            {lastUpdated && ` • শেষ আপডেট: ${lastUpdated}`}
-          </p>
-        </div>
+      {/* Top Action Bar: Realtime Refresh & Date Select */}
+      <div className="flex items-center justify-between sm:justify-end gap-2.5 bg-[#12151f] border border-[#1e2436] p-3 sm:p-4 rounded-xl shadow-lg">
+        {/* Refresh Button */}
+        <button
+          onClick={() => loadSheet1Data(true)}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1a2030] hover:bg-[#232c42] border border-[#2d3852] text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+          title="শীট ১ থেকে পুনরায় ডেটা রিফ্রেশ করুন"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-pink-400 ${refreshing ? 'animate-spin' : ''}`} />
+          <span>{refreshing ? 'রিফ্রেশ হচ্ছে...' : 'রিয়েলটাইম রিফ্রেশ'}</span>
+        </button>
 
-        {/* Action Controls & Date Selector */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Refresh Button */}
-          <button
-            onClick={() => loadSheet1Data(true)}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1a2030] hover:bg-[#232c42] border border-[#2d3852] text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
-            title="শীট ১ থেকে পুনরায় ডেটা রিফ্রেশ করুন"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-pink-400 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>{refreshing ? 'রিফ্রেশ হচ্ছে...' : 'রিয়েলটাইম রিফ্রেশ'}</span>
-          </button>
-
-          {/* Direct Sheet 1 link */}
-          <a
-            href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#141824] hover:bg-[#1c2234] border border-[#222a3d] text-gray-300 text-xs font-medium transition-all"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
-            <span className="hidden sm:inline">গুগল শীট ১</span>
-          </a>
-
-          {/* Date Range & Specific Date Dropdown */}
-          <div className="relative">
+        {/* Date Range & Specific Date Dropdown */}
+        <div className="relative">
             <button
               onClick={() => setIsDateMenuOpen(!isDateMenuOpen)}
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#161a26] hover:bg-[#1f2536] border border-pink-500/30 text-white text-xs font-semibold shadow-sm transition-all"
@@ -873,7 +844,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             )}
           </div>
         </div>
-      </div>
 
       {/* 4 Main KPI Cards: সব অর্ডারের মূল ডাটা বক্স (All Orders Summary Box for Selected Date) */}
       <div>
