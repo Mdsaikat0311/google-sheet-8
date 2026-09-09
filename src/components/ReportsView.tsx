@@ -976,22 +976,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
 
           {/* Card 4: কোয়ান্টিটি ও ক্যান্সেল */}
-          <div className="bg-[#12151f] border border-[#1e2436] rounded-2xl p-4 sm:p-5 relative overflow-hidden group hover:border-rose-500/40 transition-all shadow-md">
-            <div className="flex items-center justify-between text-xs font-medium text-gray-400">
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 sm:p-5 relative overflow-hidden group hover:border-rose-400/50 transition-all shadow-md">
+            <div className="flex items-center justify-between text-xs font-medium text-rose-300">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
                 ক্যান্সেল ও কোয়ান্টিটি
               </span>
-              <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+              <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-300">
                 <Ban className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-2.5">
-              <div className="text-2xl sm:text-3xl font-black text-rose-400 tracking-tight">
-                {aggregatedStats.totalCancel} <span className="text-sm font-semibold text-gray-400">টি</span>
+              <div className="text-2xl sm:text-3xl font-black text-rose-300 tracking-tight">
+                {aggregatedStats.totalCancel} <span className="text-sm font-semibold text-rose-200">টি</span>
               </div>
-              <div className="text-[11px] text-gray-400 mt-1 flex items-center justify-between">
-                <span>ক্যান্সেল রেট: <strong className="text-rose-300">{aggregatedStats.cancelRate}</strong></span>
+              <div className="text-[11px] text-gray-300 mt-1 flex items-center justify-between">
+                <span>ক্যান্সেল রেট: <strong className="text-rose-200">{aggregatedStats.cancelRate}</strong></span>
                 <span>কোয়ান্টিটি: <strong className="text-white">{aggregatedStats.totalQuantity}</strong> টি</span>
               </div>
             </div>
@@ -1163,10 +1163,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     </div>
 
                     {/* 7. Cancel */}
-                    <div className="bg-[#141824] border border-[#20283c] rounded-lg py-1 px-1.5 text-center flex flex-col justify-center min-h-[42px]">
-                      <span className="text-[10px] text-gray-400 font-medium block truncate">Cancel</span>
-                      <span className="text-xs sm:text-[13px] font-bold text-rose-400 mt-0.5 font-mono whitespace-nowrap">
-                        {prodStats.cancel} <span className="text-[10px] font-normal text-rose-300/80">({cleanRate(prodStats.cancelRate)})</span>
+                    <div className="bg-rose-500/20 border border-rose-500/40 rounded-lg py-1 px-1.5 text-center flex flex-col justify-center min-h-[42px]">
+                      <span className="text-[10px] text-rose-300 font-medium block truncate">Cancel</span>
+                      <span className="text-xs sm:text-[13px] font-bold text-rose-300 mt-0.5 font-mono whitespace-nowrap">
+                        {prodStats.cancel} <span className="text-[10px] font-normal text-rose-200">({cleanRate(prodStats.cancelRate)})</span>
                       </span>
                     </div>
                   </div>
@@ -1264,10 +1264,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             </div>
 
                             {/* 7. Cancel */}
-                            <div className="bg-[#0b0e16] border border-[#1a2236] rounded-lg py-1 px-1.5 text-center flex flex-col justify-center min-h-[40px]">
-                              <span className="text-[10px] text-gray-400 font-medium block truncate">Cancel</span>
-                              <span className="text-xs sm:text-[13px] font-bold text-rose-400 mt-0.5 font-mono whitespace-nowrap">
-                                {src.cancel} <span className="text-[10px] font-normal text-rose-300/80">({cleanRate(src.cancelRate)})</span>
+                            <div className="bg-rose-500/20 border border-rose-500/40 rounded-lg py-1 px-1.5 text-center flex flex-col justify-center min-h-[40px]">
+                              <span className="text-[10px] text-rose-300 font-medium block truncate">Cancel</span>
+                              <span className="text-xs sm:text-[13px] font-bold text-rose-300 mt-0.5 font-mono whitespace-nowrap">
+                                {src.cancel} <span className="text-[10px] font-normal text-rose-200">({cleanRate(src.cancelRate)})</span>
                               </span>
                             </div>
                           </div>
@@ -1546,10 +1546,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         </div>
 
                         {/* 7. Cancel */}
-                        <div className="bg-[#141824] border border-[#20283c] group-hover:border-rose-500/30 rounded-lg py-1 px-1.5 text-center flex flex-col justify-center transition-all min-h-[42px]">
-                          <span className="text-[10px] text-gray-400 font-medium block truncate">Cancel</span>
-                          <span className="text-xs sm:text-[13px] font-bold text-rose-400 mt-0.5 font-mono whitespace-nowrap">
-                            {prodStats.cancel} <span className="text-[10px] font-normal text-rose-300/80">({cleanRate(prodStats.cancelRate)})</span>
+                        <div className="bg-rose-500/20 border border-rose-500/40 group-hover:border-rose-400/60 rounded-lg py-1 px-1.5 text-center flex flex-col justify-center transition-all min-h-[42px]">
+                          <span className="text-[10px] text-rose-300 font-medium block truncate">Cancel</span>
+                          <span className="text-xs sm:text-[13px] font-bold text-rose-300 mt-0.5 font-mono whitespace-nowrap">
+                            {prodStats.cancel} <span className="text-[10px] font-normal text-rose-200">({cleanRate(prodStats.cancelRate)})</span>
                           </span>
                         </div>
                       </div>
@@ -1611,9 +1611,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       কোয়ান্টিটি:{' '}
                       <span className="text-blue-300 font-bold">{src.quantity}</span>
                     </div>
-                    <div>
-                      ক্যান্সেল:{' '}
-                      <span className="text-rose-400 font-bold">{src.cancel}</span>
+                    <div className="bg-rose-500/20 border border-rose-500/30 rounded px-1.5 py-0.5">
+                      <span className="text-rose-300">ক্যান্সেল: </span>
+                      <span className="text-rose-200 font-bold">{src.cancel}</span>
                     </div>
                   </div>
                 </div>
