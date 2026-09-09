@@ -719,6 +719,46 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     };
   };
 
+  // Real-time calculation of total orders and order distribution per product from sheet
+  const productOrderDistribution = useMemo(() => {
+    const items = unifiedProducts.map((prod) => {
+      const { prodStats } = getProductAnalytics(prod);
+      const orderCount = prodStats.lead || 0;
+      return {
+        id: prod.id,
+        name: prod.productName,
+        orderCount,
+      };
+    });
+
+    const sumOrders = items.reduce((sum, it) => sum + it.orderCount, 0);
+
+    let totalOrders = 0;
+    if (dateFilter !== 'all') {
+      totalOrders = dateFilteredOrders.length > 0 ? dateFilteredOrders.length : sumOrders;
+    } else {
+      totalOrders = sumOrders > 0 ? sumOrders : (aggregatedStats.totalLead || orders.length);
+    }
+
+    const effectiveTotal = totalOrders > 0 ? totalOrders : 1;
+
+    const breakdown = items.map((it) => {
+      const pct = totalOrders > 0 ? ((it.orderCount / effectiveTotal) * 100).toFixed(1) : '0.0';
+      return {
+        ...it,
+        percentage: `${pct}%`,
+        percentNum: totalOrders > 0 ? Math.min(100, (it.orderCount / effectiveTotal) * 100) : 0,
+      };
+    });
+
+    breakdown.sort((a, b) => b.orderCount - a.orderCount);
+
+    return {
+      totalOrders,
+      breakdown,
+    };
+  }, [unifiedProducts, dateFilteredOrders, orders, dateFilter, sheetProducts, aggregatedStats]);
+
   // Get readable label for current date filter
   const getDateFilterLabel = () => {
     if (dateFilter === 'all') return 'সব তারিখ (All Dates)';
@@ -1322,8 +1362,90 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           /* ========================================================
              PRODUCT CARDS LIST (৭টি চিকন বক্স সহ স্লিম ও কমপ্যাক্ট কার্ড)
              ======================================================== */
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4">
+            {/* Real-time Total Orders & Per-Product Order Share Card */}
+            <div className="bg-[#12151f] border border-[#1e2436] rounded-xl p-3.5 sm:p-4 shadow-lg space-y-3">
+              {/* Card Top: Total Orders & Date Badge */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-[#1c2233]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-400">
+                    <ShoppingBag className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                      <span>মোট অর্ডার ও প্রোডাক্ট ভিত্তিক অর্ডার সামারি</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-300 border border-pink-500/20 font-mono">
+                        Live Sheet Sync
+                      </span>
+                    </h3>
+                    <p className="text-[10px] text-gray-400">
+                      গুগল শিট থেকে রিয়েলটাইমে মোট অর্ডার এবং প্রতিটি প্রোডাক্টের অর্ডার ও শতাংশ
+                    </p>
+                  </div>
+                </div>
+
+                {/* Total Orders Counter Box */}
+                <div className="flex items-center gap-2.5 bg-[#151926] border border-[#212a40] px-3.5 py-1.5 rounded-xl self-start sm:self-auto">
+                  <span className="text-[11px] text-gray-400 font-medium">মোট অর্ডার:</span>
+                  <span className="text-sm sm:text-base font-bold text-pink-400 font-mono">
+                    {productOrderDistribution.totalOrders} টি
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">
+                    ({getDateFilterLabel()})
+                  </span>
+                </div>
+              </div>
+
+              {/* Product Breakdown Grid: কোন প্রোডাক্ট এ কয়টা অর্ডার এসেছে এবং পার্সেন্টেজ */}
+              {productOrderDistribution.breakdown.length === 0 ? (
+                <div className="text-center py-3 text-xs text-gray-500">
+                  কোনো প্রোডাক্টের অর্ডার ডাটা পাওয়া যায়নি।
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-2.5">
+                  {productOrderDistribution.breakdown.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => setSelectedDetailProductId(item.id)}
+                      className="bg-[#141824] hover:bg-[#181d2c] border border-[#20283c] hover:border-pink-500/40 rounded-xl p-2.5 sm:p-3 transition-all cursor-pointer group shadow-sm flex flex-col justify-between space-y-2"
+                      title="বিস্তারিত সোর্স ডাটা দেখতে ক্লিক করুন"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-md bg-gradient-to-br from-pink-600/20 to-purple-600/20 border border-pink-500/30 flex items-center justify-center text-pink-400 font-bold text-[10px] shrink-0">
+                            {item.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-xs font-bold text-white group-hover:text-pink-300 transition-colors truncate" title={item.name}>
+                            {item.name}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-bold text-pink-400 font-mono px-2 py-0.5 rounded-md bg-pink-500/10 border border-pink-500/20 shrink-0">
+                          {item.percentage}
+                        </span>
+                      </div>
+
+                      {/* Orders Count and Progress Bar */}
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] font-mono text-gray-400 mb-1">
+                          <span className="text-gray-400 text-[10px]">অর্ডার সংখ্যা:</span>
+                          <span className="font-bold text-white text-xs">
+                            {item.orderCount} টি ({item.percentage})
+                          </span>
+                        </div>
+                        <div className="w-full bg-[#1e2536] rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-pink-500 to-purple-500 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.max(item.percentNum > 0 ? 4 : 0, item.percentNum)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
               <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
                 <Package className="w-4 h-4 text-purple-400" />
                 প্রোডাক্ট ভিত্তিক আলাদা কার্ড বক্স ({filteredProducts.length} টি)
