@@ -35,7 +35,6 @@ import {
 } from 'lucide-react';
 import { Order, Sheet1ProductReport, ProductReportSource } from '../types';
 import { fetchSheet1Reports, DEFAULT_SPREADSHEET_ID } from '../services/sheets';
-import { INITIAL_CUSTOMER_ANALYTICS } from '../data/initialOrders';
 
 interface ReportsViewProps {
   spreadsheetId?: string;
@@ -56,7 +55,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Selected product ID for full dedicated source detail page (when card is clicked)
   const [selectedDetailProductId, setSelectedDetailProductId] = useState<string | null>(null);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'sources' | 'customers'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'sources'>('products');
   
   // Date Filtering State
   const [dateFilter, setDateFilter] = useState<string>('all'); // 'all', 'today', 'yesterday', 'week', 'month', or specific date
@@ -451,51 +450,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       color: colors[item.name] || '#6b7280',
     }));
   }, [sheetProducts]);
-
-  // Customer Analytics
-  const derivedCustomerAnalytics = useMemo(() => {
-    if (!orders || orders.length === 0) return INITIAL_CUSTOMER_ANALYTICS;
-
-    const customerMap: {
-      [key: string]: {
-        name: string;
-        phone: string;
-        address: string;
-        totalOrders: number;
-        totalSpend: number;
-        lastOrder: string;
-      };
-    } = {};
-
-    orders.forEach((o) => {
-      const phoneKey = o.customerPhone ? o.customerPhone.trim() : o.customerName;
-      if (!customerMap[phoneKey]) {
-        customerMap[phoneKey] = {
-          name: o.customerName,
-          phone: o.customerPhone,
-          address: o.customerAddress,
-          totalOrders: 0,
-          totalSpend: 0,
-          lastOrder: o.date || '08/09/26',
-        };
-      }
-      customerMap[phoneKey].totalOrders += 1;
-      customerMap[phoneKey].totalSpend += o.amount || o.total || 0;
-    });
-
-    return Object.values(customerMap)
-      .sort((a, b) => b.totalOrders - a.totalOrders)
-      .slice(0, 10)
-      .map((c) => ({
-        name: c.name,
-        phone: c.phone,
-        address: c.address,
-        totalOrders: c.totalOrders,
-        avgOrderValue: Math.round(c.totalSpend / (c.totalOrders || 1)),
-        lastOrder: c.lastOrder,
-        status: 'Active' as 'Active' | 'Inactive',
-      }));
-  }, [orders]);
 
   // Source Icon Helper
   const getSourceIcon = (name: string) => {
@@ -1031,16 +985,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               }`}
             >
               সামগ্রিক সোর্স এনালিটিক্স
-            </button>
-            <button
-              onClick={() => setActiveTab('customers')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'customers'
-                  ? 'bg-purple-600 text-white shadow'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              কাস্টমার ডাটা
             </button>
           </div>
 
@@ -1698,80 +1642,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Tab View 3: Customer Analytics Table */}
-      {activeTab === 'customers' && (
-        <div className="bg-[#12151f] border border-[#1e2436] rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-400" />
-              কাস্টমার এনালিটিক্স (Sheet 2 Live Data)
-            </h3>
-            <span className="text-xs text-gray-400">টপ রিপিট কাস্টমার তালিকা</span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#1c2232] text-xs text-gray-400 font-semibold">
-                  <th className="py-2.5 px-4">
-                    কাস্টমার নাম
-                    <br />
-                    <span className="text-[10px] text-gray-600 font-normal">Customer Name</span>
-                  </th>
-                  <th className="py-2.5 px-4">
-                    ফোন নম্বর
-                    <br />
-                    <span className="text-[10px] text-gray-600 font-normal">Phone</span>
-                  </th>
-                  <th className="py-2.5 px-4">
-                    মোট অর্ডার
-                    <br />
-                    <span className="text-[10px] text-gray-600 font-normal">Total Orders</span>
-                  </th>
-                  <th className="py-2.5 px-4">
-                    গড় অর্ডার মূল্য
-                    <br />
-                    <span className="text-[10px] text-gray-600 font-normal">Avg. Order Value</span>
-                  </th>
-                  <th className="py-2.5 px-4">
-                    ঠিকানা
-                    <br />
-                    <span className="text-[10px] text-gray-600 font-normal">Address</span>
-                  </th>
-                  <th className="py-2.5 px-4 text-right">
-                    স্ট্যাটাস
-                    <br />
-                    <span className="text-[10px] text-gray-600 font-normal">Status</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#171b26]">
-                {derivedCustomerAnalytics.map((c, idx) => (
-                  <tr key={idx} className="hover:bg-[#161a26] transition-colors">
-                    <td className="py-3 px-4 font-semibold text-gray-200 text-xs">{c.name}</td>
-                    <td className="py-3 px-4 text-pink-300 font-mono text-xs">{c.phone || '—'}</td>
-                    <td className="py-3 px-4 text-gray-300 text-xs font-bold">
-                      {c.totalOrders} টি
-                    </td>
-                    <td className="py-3 px-4 text-gray-300 font-mono text-xs">
-                      ৳{c.avgOrderValue}
-                    </td>
-                    <td className="py-3 px-4 text-gray-400 text-xs truncate max-w-[160px]">
-                      {c.address || '—'}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                        {c.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       )}
